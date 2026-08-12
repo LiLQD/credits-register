@@ -421,10 +421,14 @@
       classCode,
       filterFn,
       interval = 6700,
-      jitter = 1670,
+      jitter = 2000,
       maxErrors = 5,
       maxAttempts = 0,
     } = options;
+    if (!validateMonitorTiming(interval, jitter)) {
+      return null;
+    }
+
     const targetKey = getMonitorTargetKey(fid, options);
     const existingMonitor = Object.values(state.monitors).find(
       (monitor) =>
@@ -741,7 +745,7 @@
           </div>
           <div class="form-group" style="flex:1;">
             <label>Jitter (ms)</label>
-            <input type="number" id="mon-jitter" value="1670">
+            <input type="number" id="mon-jitter" value="2000">
           </div>
         </div>
         <div class="flex-row">
@@ -761,6 +765,11 @@
   let modules = state.modules;
   let activeMonitors = {};
   let monitorCounter = 0;
+  const MIN_MONITOR_DELAY = 2000;
+  const MONITOR_DELAY_WARNING =
+    "Unsafe monitor timing blocked: interval and jitter must be at least 2000ms. " +
+    "Polling too fast may get your account noticed, rate-limited, or banned. " +
+    "You are responsible for any consequences if you bypass this protection.";
 
   function getMonitorTargetKey(fid, options = {}) {
     const base = `fid:${toID(fid)}`;
@@ -784,6 +793,17 @@
     delete activeMonitors[id];
     if (getActiveMonitorCount() === 0) monitorCounter = 0;
     renderMonitors();
+  }
+
+  function validateMonitorTiming(interval, jitter, notify = console.warn) {
+    if (
+      Number(interval) < MIN_MONITOR_DELAY ||
+      Number(jitter) < MIN_MONITOR_DELAY
+    ) {
+      notify(MONITOR_DELAY_WARNING);
+      return false;
+    }
+    return true;
   }
 
   // LOGGING
@@ -881,10 +901,18 @@
         const interval =
           parseInt(document.getElementById("mon-interval").value) || 6700;
         const jitter =
-          parseInt(document.getElementById("mon-jitter").value) || 1670;
+          parseInt(document.getElementById("mon-jitter").value) || 2000;
 
         if (!fid) {
           addLog("Please enter a Module ID (fid)", "error");
+          return;
+        }
+
+        if (
+          !validateMonitorTiming(interval, jitter, (message) =>
+            addLog(message, "error"),
+          )
+        ) {
           return;
         }
 
@@ -1122,6 +1150,15 @@
 
   // UI MONITORING
   function startUIMonitor(fid, options) {
+    const { interval = 6700, jitter = 2000, maxErrors = 5 } = options;
+    if (
+      !validateMonitorTiming(interval, jitter, (message) =>
+        addLog(message, "error"),
+      )
+    ) {
+      return null;
+    }
+
     const targetKey = getMonitorTargetKey(fid, options);
     const existing = Object.entries(activeMonitors).find(
       ([, monitor]) => !monitor.stopped && monitor.targetKey === targetKey,
@@ -1141,7 +1178,6 @@
     let stopped = false;
     let timeoutId = null;
     let controller = null;
-    const { interval = 6700, jitter = 1670, maxErrors = 5 } = options;
 
     const scheduleNext = (ms) => {
       if (stopped) return;
@@ -1323,7 +1359,7 @@
       "  regist(246023)",
       "  removeClass(246023)",
       "  scanAllModules()",
-      "  startMonitoring(8472, { classID: 246023, interval: 6700, jitter: 1670, maxErrors: 5, maxAttempts: 0 })",
+      "  startMonitoring(8472, { classID: 246023, interval: 6700, jitter: 2000, maxErrors: 5, maxAttempts: 0 })",
       "Scanned class rows and window.__haui.scannedClasses include both FID and Class ID.",
     ].join("\n"),
   );

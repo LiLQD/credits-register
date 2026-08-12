@@ -50,7 +50,7 @@ https://sv.haui.edu.vn/*
 - Cần đăng nhập vào `sv.haui.edu.vn` trước khi dùng.
 - Nếu báo thiếu hoặc hết hạn `window.kverify`, hãy refresh trang và đăng nhập lại nếu cần.
 - Script sử dụng các AJAX endpoint và session đăng nhập sẵn có của trình duyệt.
-- Không đặt interval quá thấp để tránh gửi request quá dày.
+- Monitor sẽ chặn `interval` hoặc `jitter` dưới 2000ms; cố tình bypass có thể khiến tài khoản bị chú ý, rate-limit hoặc ban, người dùng tự chịu trách nhiệm.
 - Không sử dụng tự động đăng ký theo cách vi phạm quy định của trường hoặc ảnh hưởng người khác.
 
 ## File

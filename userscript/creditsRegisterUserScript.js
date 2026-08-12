@@ -80,6 +80,23 @@
     }
   }
 
+  function escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (char) => {
+      const entities = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      };
+      return entities[char];
+    });
+  }
+
+  function escapeAttribute(value) {
+    return escapeHTML(value).replace(/`/g, "&#96;");
+  }
+
   async function fetchAPI(cmd, body = "", options = {}) {
     if (!window.kverify) {
       throw new Error(
@@ -877,7 +894,9 @@
     const container = document.getElementById("module-list");
     if (!container) return;
     const filtered = modules.filter((m) =>
-      m.name.toLowerCase().includes(filter.toLowerCase()),
+      String(m.name || "")
+        .toLowerCase()
+        .includes(String(filter || "").toLowerCase()),
     );
     if (filtered.length === 0) {
       container.innerHTML = `<div style="text-align:center;padding:20px;color:#aaa;">No modules found</div>`;
@@ -886,9 +905,9 @@
     container.innerHTML = filtered
       .map(
         (m) => `
-      <div class="module-item" data-fid="${m.id}" data-name="${m.name}">
-        <div class="mod-name">${highlightMatch(m.name, filter)} <span class="mod-id">#${m.id}</span></div>
-        <div class="mod-info">${m.group} | Click to view classes</div>
+      <div class="module-item" data-fid="${escapeAttribute(m.id)}">
+        <div class="mod-name">${highlightMatch(m.name, filter)} <span class="mod-id">#${escapeHTML(m.id)}</span></div>
+        <div class="mod-info">${escapeHTML(m.group)} | Click to view classes</div>
       </div>
     `,
       )
@@ -896,8 +915,9 @@
 
     container.querySelectorAll(".module-item").forEach((item) => {
       item.addEventListener("click", async () => {
-        const fid = parseInt(item.dataset.fid);
-        const name = item.dataset.name;
+        const fid = item.dataset.fid;
+        const selectedModule = modules.find((m) => toID(m.id) === toID(fid));
+        const name = selectedModule?.name || fid;
         // Highlight selected
         container
           .querySelectorAll(".module-item")
@@ -909,22 +929,27 @@
   }
 
   function highlightMatch(text, query) {
-    if (!query) return text;
+    const source = String(text ?? "");
+    if (!query) return escapeHTML(source);
     const regex = new RegExp(
       `(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
       "gi",
     );
-    return text.replace(
-      regex,
-      '<span style="color:#667eea;font-weight:700;">$1</span>',
-    );
+    const parts = source.split(regex);
+    return parts
+      .map((part) =>
+        part.toLowerCase() === query.toLowerCase()
+          ? `<span style="color:#667eea;font-weight:700;">${escapeHTML(part)}</span>`
+          : escapeHTML(part),
+      )
+      .join("");
   }
 
   async function showClassDetail(fid, name) {
     const detailDiv = document.getElementById("class-detail");
     if (!detailDiv) return;
     detailDiv.style.display = "block";
-    detailDiv.innerHTML = `<div style="text-align:center;padding:20px;">⏳ Loading classes for <b>${name}</b>...</div>`;
+    detailDiv.innerHTML = `<div style="text-align:center;padding:20px;">⏳ Loading classes for <b>${escapeHTML(name)}</b>...</div>`;
     try {
       const classes = (await getClassesForModule(fid)).map((c) => ({
         ...c,
@@ -936,7 +961,7 @@
         return;
       }
       detailDiv.innerHTML = `
-        <h3 style="margin-bottom:10px;font-size:16px;">${name} <span style="color:#667eea;">(${classes.length} classes)</span></h3>
+        <h3 style="margin-bottom:10px;font-size:16px;">${escapeHTML(name)} <span style="color:#667eea;">(${classes.length} classes)</span></h3>
         ${classes.map((c) => renderClassCard(c)).join("")}
       `;
       // Bind register buttons
@@ -957,7 +982,7 @@
         });
       });
     } catch (err) {
-      detailDiv.innerHTML = `<div style="padding:15px;background:#e74c3c20;border-radius:8px;color:#e74c3c;">Error: ${err.message}</div>`;
+      detailDiv.innerHTML = `<div style="padding:15px;background:#e74c3c20;border-radius:8px;color:#e74c3c;">Error: ${escapeHTML(err.message)}</div>`;
       addLog(`Error loading classes for ${name}: ${err.message}`, "error");
     }
   }
@@ -970,18 +995,18 @@
       <div class="class-card">
         <div class="class-header">
           <div>
-            <div class="class-name">${c.ClassName} – ${c.ModulesName}</div>
-            <div class="class-code">${c.ClassCode || ""} | FID: ${normalized.fid || "N/A"} | ID: ${c.IndependentClassID}</div>
+            <div class="class-name">${escapeHTML(c.ClassName)} – ${escapeHTML(c.ModulesName)}</div>
+            <div class="class-code">${escapeHTML(c.ClassCode || "")} | FID: ${escapeHTML(normalized.fid || "N/A")} | ID: ${escapeHTML(c.IndependentClassID)}</div>
           </div>
           <span class="seats ${seatClass}">${normalized.countS}/${normalized.maxStudent}</span>
         </div>
-        <div class="detail-row"><span>👨‍🏫 Giáo viên:</span><span>${normalized.teacher}</span></div>
-        <div class="detail-row"><span>📅 Bắt đầu:</span><span>${c.StartDate}</span></div>
-        <div class="detail-row"><span>📍 Địa điểm:</span><span>${normalized.location}</span></div>
-        <div class="detail-row"><span>🕒 Thời gian:</span><span>${normalized.schedule}</span></div>
+        <div class="detail-row"><span>👨‍🏫 Giáo viên:</span><span>${escapeHTML(normalized.teacher)}</span></div>
+        <div class="detail-row"><span>📅 Bắt đầu:</span><span>${escapeHTML(c.StartDate)}</span></div>
+        <div class="detail-row"><span>📍 Địa điểm:</span><span>${escapeHTML(normalized.location)}</span></div>
+        <div class="detail-row"><span>🕒 Thời gian:</span><span>${escapeHTML(normalized.schedule)}</span></div>
         <div class="detail-row"><span>💰 Học phí:</span><span>${formatMoney(c.Costs)} VNĐ</span></div>
         <div style="margin-top:10px;display:flex;gap:8px;">
-          <button class="btn btn-success btn-sm btn-register" data-classid="${c.IndependentClassID}" ${!available ? "disabled" : ""}>
+          <button class="btn btn-success btn-sm btn-register" data-classid="${escapeAttribute(c.IndependentClassID)}" ${!available ? "disabled" : ""}>
             ${available ? "📝 Register" : "🔒 Full"}
           </button>
         </div>
@@ -1074,6 +1099,11 @@
       stopped = true;
       if (timeoutId) clearTimeout(timeoutId);
       if (controller) controller.abort();
+      if (activeMonitors[id]) {
+        activeMonitors[id].stopped = true;
+        activeMonitors[id].status =
+          activeMonitors[id].status === "success" ? "success" : "stopped";
+      }
       addLog(`Monitor #${id} stopped: ${reason}`, "info");
       renderMonitors();
     };
@@ -1098,14 +1128,12 @@
           );
         else if (options.filterFn) target = classes.find(options.filterFn);
 
-        activeMonitors[id] = {
-          fid,
-          options,
+        Object.assign(activeMonitors[id], {
           attempts,
           stopped: false,
           lastSeats: target ? `${target.CountS}/${target.MaxStudent}` : "N/A",
           className: target ? target.ClassName : "N/A",
-        };
+        });
         renderMonitors();
 
         if (target && target.CountS < target.MaxStudent) {
@@ -1182,39 +1210,29 @@
       <div class="monitor-item">
         <div class="monitor-status">
           <span class="status-dot ${m.stopped ? (m.status === "success" ? "dot-success" : "dot-stopped") : "dot-running"}"></span>
-          <strong>Monitor #${id}</strong> – ${m.className}
+          <strong>Monitor #${escapeHTML(id)}</strong> – ${escapeHTML(m.className)}
         </div>
         <div style="font-size:12px;color:#aaa;">
-          fid: ${m.fid} | Attempts: ${m.attempts} | Seats: ${m.lastSeats}
+          fid: ${escapeHTML(m.fid)} | Attempts: ${escapeHTML(m.attempts)} | Seats: ${escapeHTML(m.lastSeats)}
         </div>
         <div style="font-size:12px;color:#aaa;">
           Status: ${m.stopped ? (m.status === "success" ? "✅ Success" : "⏹ Stopped") : "🔄 Running"}
         </div>
-        ${!m.stopped ? `<button class="btn btn-danger btn-sm" style="margin-top:8px;" onclick="this.__stopMonitor(${id})">⏹ Stop</button>` : ""}
+        ${!m.stopped ? `<button class="btn btn-danger btn-sm btn-stop-one-monitor" style="margin-top:8px;" data-monitor-id="${id}">⏹ Stop</button>` : ""}
       </div>
     `,
       )
       .join("");
 
-    // Attach stop handlers
-    container.querySelectorAll("button").forEach((btn) => {
-      if (btn.textContent.includes("Stop")) {
-        btn.__stopMonitor = (id) => {
-          if (activeMonitors[id]) {
-            activeMonitors[id].stop();
-            delete activeMonitors[id];
-            renderMonitors();
-          }
-        };
-        btn.addEventListener("click", function () {
-          const id = parseInt(this.getAttribute("onclick")?.match(/\d+/)?.[0]);
-          if (id && activeMonitors[id]) {
-            activeMonitors[id].stop();
-            delete activeMonitors[id];
-            renderMonitors();
-          }
-        });
-      }
+    container.querySelectorAll(".btn-stop-one-monitor").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        const id = Number(this.dataset.monitorId);
+        const monitor = activeMonitors[id];
+        if (!monitor) return;
+        monitor.stop();
+        delete activeMonitors[id];
+        renderMonitors();
+      });
     });
   }
 

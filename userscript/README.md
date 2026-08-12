@@ -9,10 +9,12 @@ https://sv.haui.edu.vn
 Phiên bản userscript này được phát triển dựa trên script console/repository gốc:
 
 - Dự án gốc: `credits-register`
-- Tác giả gốc: Nguyễn Trung Hiếu
+- Tác giả gốc: Nguyễn Trung Hiếu (Seotow)
 - File gốc: `creditsRegister.js`
 
-Phiên bản này chỉ chuyển hướng sử dụng từ console script sang userscript/trình duyệt, đồng thời giữ nguyên mục đích chính: hỗ trợ xem dữ liệu đăng ký tín chỉ từ các API sẵn có của hệ thống HaUI.
+Phiên bản này chỉ chuyển hướng sử dụng từ console script sang userscript/trình duyệt, đồng thời giữ nguyên mục đích chính: hỗ trợ xem dữ liệu đăng ký tín chỉ từ các API sẵn có của hệ thống HaUI. (Do tác giả gốc không update hơn 1 năm btw)
+
+Nần ná na na anh sờ eo tơ
 
 ## Phiên bản này có gì
 

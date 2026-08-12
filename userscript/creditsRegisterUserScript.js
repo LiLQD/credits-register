@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         HaUI Credit Registration Assistant
+// @name         Ha"better"UI
 // @namespace    https://sv.haui.edu.vn/
 // @version      1.0.0
 // @description  Captcha‑free module browser, class scanner, and auto‑sniper with beautiful UI
@@ -425,6 +425,20 @@
       maxErrors = 5,
       maxAttempts = 0,
     } = options;
+    const targetKey = getMonitorTargetKey(fid, options);
+    const existingMonitor = Object.values(state.monitors).find(
+      (monitor) =>
+        monitor?.targetKey === targetKey &&
+        typeof monitor.getStatus === "function" &&
+        !monitor.getStatus().stopped,
+    );
+    if (existingMonitor) {
+      console.warn(
+        "A monitor is already running for this target. Duplicate monitor blocked.",
+      );
+      return existingMonitor;
+    }
+
     const monitorId = `console-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     let attempts = 0;
     let consecutiveErrors = 0;
@@ -454,6 +468,7 @@
       stopped = true;
       if (timeoutId) clearTimeout(timeoutId);
       if (controller) controller.abort();
+      delete state.monitors[monitorId];
       console.info(`Monitor stopped: ${reason}`);
     };
 
@@ -538,7 +553,7 @@
       scheduleNext();
     };
 
-    state.monitors[monitorId] = { stop, getStatus: status };
+    state.monitors[monitorId] = { stop, getStatus: status, targetKey };
     timeoutId = setTimeout(check, Math.random() * 2000);
     return {
       stop,
@@ -747,6 +762,30 @@
   let activeMonitors = {};
   let monitorCounter = 0;
 
+  function getMonitorTargetKey(fid, options = {}) {
+    const base = `fid:${toID(fid)}`;
+    if (options.classID != null) {
+      return `${base}|classID:${toID(options.classID)}`;
+    }
+    if (options.classCode) {
+      return `${base}|classCode:${toID(options.classCode)}`;
+    }
+    if (options.filterText) {
+      return `${base}|filter:${toID(options.filterText).toLowerCase()}`;
+    }
+    return `${base}|target:any`;
+  }
+
+  function getActiveMonitorCount() {
+    return Object.values(activeMonitors).filter((m) => !m.stopped).length;
+  }
+
+  function removeUIMonitor(id) {
+    delete activeMonitors[id];
+    if (getActiveMonitorCount() === 0) monitorCounter = 0;
+    renderMonitors();
+  }
+
   // LOGGING
   function addLog(msg, type = "info") {
     const logArea = document.getElementById("log-area");
@@ -853,9 +892,12 @@
         if (classID) options.classID = classID;
         else if (classCode) options.classCode = classCode;
         else if (filterStr)
-          options.filterFn = (c) =>
-            c.ClassName?.includes(filterStr) ||
-            c.BranchName?.includes(filterStr);
+          Object.assign(options, {
+            filterText: filterStr,
+            filterFn: (c) =>
+              c.ClassName?.includes(filterStr) ||
+              c.BranchName?.includes(filterStr),
+          });
         else {
           addLog("Provide classID, classCode, or filter", "error");
           return;
@@ -868,8 +910,7 @@
       .getElementById("btn-stop-monitor")
       .addEventListener("click", () => {
         Object.values(activeMonitors).forEach((m) => m.stop());
-        activeMonitors = {};
-        renderMonitors();
+        monitorCounter = 0;
         addLog("All monitors stopped", "info");
       });
 
@@ -1081,6 +1122,19 @@
 
   // UI MONITORING
   function startUIMonitor(fid, options) {
+    const targetKey = getMonitorTargetKey(fid, options);
+    const existing = Object.entries(activeMonitors).find(
+      ([, monitor]) => !monitor.stopped && monitor.targetKey === targetKey,
+    );
+    if (existing) {
+      addLog(
+        `Monitor #${existing[0]} is already running for this target. Duplicate monitor blocked.`,
+        "error",
+      );
+      renderMonitors();
+      return Number(existing[0]);
+    }
+
     const id = ++monitorCounter;
     let attempts = 0;
     let consecutiveErrors = 0;
@@ -1105,7 +1159,7 @@
           activeMonitors[id].status === "success" ? "success" : "stopped";
       }
       addLog(`Monitor #${id} stopped: ${reason}`, "info");
-      renderMonitors();
+      removeUIMonitor(id);
     };
 
     const check = async () => {
@@ -1179,6 +1233,7 @@
     activeMonitors[id] = {
       fid,
       options,
+      targetKey,
       attempts: 0,
       stopped: false,
       stop: () => stop("User stopped"),
